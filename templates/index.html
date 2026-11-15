@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ransomware Simulation & Detection System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🛡️</div>
+    <div>
+      <h1>Ransomware Simulation &amp; Detection System</h1>
+      <p>Safe sandbox · Behavioural monitoring · Heuristic + ML detection</p>
+    </div>
+  </div>
+  <div class="sandbox-badge"><span class="dot"></span> Sandbox isolated · no real files at risk</div>
+</header>
+
+<main>
+  <!-- ============ WORKFLOW ============ -->
+  <section class="card workflow">
+    <h2>System Workflow</h2>
+    <div class="steps" id="steps">
+      <div class="step c-blue"   data-step="load"><span>⬆</span>Load Files</div>
+      <div class="arrow">→</div>
+      <div class="step c-purple" data-step="simulate"><span>🔒</span>Simulate Encryption</div>
+      <div class="arrow">→</div>
+      <div class="step c-cyan"   data-step="monitor"><span>📈</span>Monitor Activity</div>
+      <div class="arrow">→</div>
+      <div class="step c-yellow" data-step="detect"><span>🔍</span>Detect Anomalies</div>
+      <div class="arrow">→</div>
+      <div class="step c-orange" data-step="alert"><span>⚠</span>Generate Alerts</div>
+      <div class="arrow">→</div>
+      <div class="step c-green"  data-step="display"><span>📊</span>Dashboard Display</div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <!-- ============ LEFT ============ -->
+    <div class="col">
+      <section class="card">
+        <h2>Upload Test Files</h2>
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" multiple hidden>
+          <div class="dz-icon">⬆</div>
+          <div><b>Drag &amp; drop</b> files here or <u>browse</u></div>
+          <small>Copies are stored in the sandbox only (max 25 files, 5 MB each)</small>
+        </label>
+        <button class="btn ghost full" id="sampleBtn">Load sample test files</button>
+        <div class="file-head"><span id="fileCount">0 files in sandbox</span></div>
+        <ul class="file-list" id="fileList"><li class="muted">No files loaded yet</li></ul>
+      </section>
+
+      <section class="card">
+        <h2>Check URL / Link</h2>
+        <form id="urlForm" class="url-form">
+          <input id="urlInput" placeholder="e.g. http://paypal-verify.secure-login.xyz/update" autocomplete="off">
+          <button class="btn primary" type="submit">Check</button>
+        </form>
+        <small class="muted">Static analysis only. The link is never opened.</small>
+        <div id="urlResults"></div>
+      </section>
+    </div>
+
+    <!-- ============ MIDDLE ============ -->
+    <div class="col">
+      <section class="card">
+        <h2>Simulation Control</h2>
+        <div class="modes" id="modes">
+          <label class="mode"><input type="radio" name="mode" value="normal"><div><b>Normal activity</b><small>Small edits, no renaming</small></div><em class="tag safe">expect SAFE</em></label>
+          <label class="mode"><input type="radio" name="mode" value="moderate"><div><b>Moderate</b><small>Bulk renaming, no encryption</small></div><em class="tag warning">expect WARNING</em></label>
+          <label class="mode"><input type="radio" name="mode" value="ransomware" checked><div><b>Ransomware-like attack</b><small>AES-256 encrypt + rename to .locked + ransom note</small></div><em class="tag critical">expect CRITICAL</em></label>
+        </div>
+        <div class="controls">
+          <button class="btn primary big" id="startBtn">▶ Start Analysis</button>
+          <button class="btn ghost" id="restoreBtn" title="Decrypt and rename files back">↺ Restore</button>
+          <button class="btn ghost" id="resetBtn" title="Delete all sandbox files">✕ Reset</button>
+        </div>
+        <div class="status" id="status">Load files, choose a scenario, then press Start Analysis.</div>
+      </section>
+
+      <section class="card">
+        <h2>Activity Monitoring <small class="muted" id="monSource"></small></h2>
+        <div class="metric">
+          <div class="m-top"><span>File Rename Rate</span><em class="badge" id="renameBadge">—</em></div>
+          <div class="m-val"><b id="renameVal">0%</b><small id="renameSub">0 of 0 files renamed</small></div>
+          <div class="bar"><div id="renameBar"></div></div>
+        </div>
+        <div class="metric">
+          <div class="m-top"><span>Data Entropy</span><em class="badge" id="entropyBadge">—</em></div>
+          <div class="m-val"><b id="entropyVal">0.00 / 8</b><small id="entropySub">before → after</small></div>
+          <div class="bar"><div id="entropyBar"></div></div>
+        </div>
+        <div class="metric">
+          <div class="m-top"><span>Modification Speed</span><em class="badge" id="speedBadge">—</em></div>
+          <div class="m-val"><b id="speedVal">0 files/min</b><small id="speedSub">—</small></div>
+          <div class="bar"><div id="speedBar"></div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Entropy per File (before vs after)</h2>
+        <canvas id="entropyChart" height="190"></canvas>
+      </section>
+      <section class="card">
+        <h2>File-System Events Timeline (watchdog)</h2>
+        <canvas id="timelineChart" height="160"></canvas>
+      </section>
+    </div>
+
+    <!-- ============ RIGHT ============ -->
+    <div class="col">
+      <section class="card">
+        <h2>Detection Engine</h2>
+        <div class="threat" id="threatBox">
+          <div class="t-top"><span>Threat Level</span><em class="badge" id="levelBadge">IDLE</em></div>
+          <div class="t-score"><b id="scoreVal">0</b><small>/ 100</small></div>
+          <div class="bar big"><div id="scoreBar"></div></div>
+          <p id="verdict" class="muted">Waiting for analysis…</p>
+        </div>
+        <h3>Detected Patterns</h3>
+        <ul class="patterns" id="patterns"><li class="muted">None yet</li></ul>
+      </section>
+
+      <section class="card">
+        <h2>ML Detection <small class="muted">Decision Tree</small></h2>
+        <div class="ml">
+          <div class="ring" id="mlRing"><span id="mlProb">—</span></div>
+          <div>
+            <b id="mlLabel">No prediction yet</b>
+            <p class="muted small" id="mlAcc">Model accuracy: …</p>
+          </div>
+        </div>
+        <h3>Model comparison <small class="muted" style="text-transform:none">(same test set)</small></h3>
+        <div class="table-wrap"><table id="cmpTable"><thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead><tbody></tbody></table></div>
+        <details>
+          <summary>How the model decides</summary>
+          <canvas id="fiChart" height="170"></canvas>
+          <pre id="mlRules" class="rules"></pre>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2>Alerts <small class="muted" id="alertCount"></small></h2>
+        <ul class="alerts" id="alerts"><li class="muted">No alerts</li></ul>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOM ============ -->
+  <div class="grid two">
+    <section class="card">
+      <div class="row-head">
+        <h2>Activity Logs</h2>
+        <div style="display:flex;gap:6px">
+          <button class="btn primary small" id="pdfBtn">📄 Incident Report (PDF)</button>
+          <button class="btn ghost small" id="exportBtn">⬇ Export Logs (CSV)</button>
+        </div>
+      </div>
+      <div class="logs" id="logs"><div class="muted">Logs will appear here…</div></div>
+    </section>
+    <section class="card">
+      <h2>File Results</h2>
+      <div class="table-wrap">
+        <table id="resultTable">
+          <thead><tr><th>Original</th><th>After</th><th>Action</th><th>Entropy</th></tr></thead>
+          <tbody><tr><td colspan="4" class="muted">No results yet</td></tr></tbody>
+        </table>
+      </div>
+      <h2 style="margin-top:18px">Run History <small class="muted">(SQLite)</small></h2>
+      <div class="table-wrap">
+        <table id="historyTable">
+          <thead><tr><th>Time</th><th>Scenario</th><th>Files</th><th>Score</th><th>ML</th><th>Level</th></tr></thead>
+          <tbody><tr><td colspan="6" class="muted">No runs yet</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+<footer>PBL Project · Ransomware Simulation &amp; Detection System · Educational use only. All activity is confined to the sandbox and fully reversible.</footer>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
